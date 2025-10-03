@@ -1,68 +1,69 @@
-// app/components/PostBox.js
 "use client";
 import { useState } from "react";
 import { supabase } from "../utils/supabaseClient";
 import { useAuth } from "../utils/AuthProvider";
 
 export default function PostBox() {
-  const { user } = useAuth();
+  const { user } = useAuth(); // get logged-in user
   const [text, setText] = useState("");
   const [image, setImage] = useState("");
 
-  async function handlePost() {
-    if (!text.trim()) return;
+  async function createPost() {
     if (!user) {
-      alert("Please login to post.");
+      alert("You must be logged in to post.");
+      return;
+    }
+    if (!text.trim() && !image.trim()) {
+      alert("Post cannot be empty.");
       return;
     }
 
-    const { error } = await supabase.from("posts").insert([
-      {
-        user_id: user.id,
-        username: user.email, // later replace with display name
-        text,
-        image: image || null,
-        likes: 0,
-      },
-    ]);
+    const { error } = await supabase
+      .from("posts")
+      .insert([
+        {
+          text,
+          image,
+          user_id: user.id,   // ✅ link post to user
+          username: user.email.split("@")[0], // optional username
+          likes: 0,           // default likes
+        },
+      ]);
 
     if (error) {
-      alert(error.message);
+      console.error("Error creating post:", error);
+      alert("Error creating post: " + error.message);
     } else {
       setText("");
       setImage("");
-      console.log("Post added!");
-      // ✅ No manual state update needed — Feed.js + UserProfile.js
-      // get it via realtime subscription
     }
   }
 
+  if (!user) {
+    return (
+      <div className="bg-white p-4 rounded shadow border text-center">
+        <p className="text-gray-500">Login to create posts</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="bg-white p-4 rounded shadow-sm border border-gray-200 mb-4">
+    <div className="bg-white p-4 rounded shadow border">
       <textarea
-        className="w-full p-2 border rounded mb-2"
-        placeholder={user ? "What's on your mind?" : "Login to post…"}
+        className="w-full border rounded p-2"
+        placeholder="What's on your mind?"
         value={text}
         onChange={(e) => setText(e.target.value)}
-        disabled={!user}
       />
-
       <input
-        className="w-full p-2 border rounded mb-2"
+        className="w-full border rounded p-2 mt-2"
         placeholder="Optional image URL"
         value={image}
         onChange={(e) => setImage(e.target.value)}
-        disabled={!user}
       />
-
       <button
-        onClick={handlePost}
-        disabled={!user}
-        className={`px-4 py-2 rounded ${
-          user
-            ? "bg-blue-600 hover:bg-blue-700 text-white"
-            : "bg-gray-300 text-gray-600 cursor-not-allowed"
-        }`}
+        onClick={createPost}
+        className="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
       >
         Post
       </button>

@@ -1,0 +1,8 @@
+20231005_add_userid_to_posts.sql
+-- Migration: Add user_id column to posts table
+
+alter table posts
+add column if not exists user_id uuid references auth.users(id);
+
+-- Optional: Index for faster queries by user
+create index if not exists idx_posts_user_id on posts(user_id);
