@@ -1,66 +1,71 @@
+// app/components/PostBox.js
 "use client";
-
 import { useState } from "react";
+import { supabase } from "../utils/supabaseClient";
+import { useAuth } from "../utils/AuthProvider";
 
-export default function PostBox({ onPost }) {
+export default function PostBox() {
+  const { user } = useAuth();
   const [text, setText] = useState("");
-  const [image, setImage] = useState(null);
+  const [image, setImage] = useState("");
 
-  const handleSubmit = () => {
-    if (!text.trim() && !image) return;
-    onPost(text, image);
-    setText("");
-    setImage(null);
-  };
-
-  const handleImage = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImage(reader.result);
-      };
-      reader.readAsDataURL(file);
+  async function handlePost() {
+    if (!text.trim()) return;
+    if (!user) {
+      alert("Please login to post.");
+      return;
     }
-  };
+
+    const { error } = await supabase.from("posts").insert([
+      {
+        user_id: user.id,
+        username: user.email, // later replace with display name
+        text,
+        image: image || null,
+        likes: 0,
+      },
+    ]);
+
+    if (error) {
+      alert(error.message);
+    } else {
+      setText("");
+      setImage("");
+      console.log("Post added!");
+      // ✅ No manual state update needed — Feed.js + UserProfile.js
+      // get it via realtime subscription
+    }
+  }
 
   return (
-    <div className="bg-white shadow-md rounded-lg p-4 mb-4">
-      <div className="flex items-center mb-3">
-        <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center font-bold text-gray-600">
-          U
-        </div>
-        <input
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="What's on your mind?"
-          className="ml-3 flex-1 border rounded-full px-4 py-2 bg-gray-100 text-gray-700 placeholder-gray-500 focus:outline-none"
-        />
-      </div>
+    <div className="bg-white p-4 rounded shadow-sm border border-gray-200 mb-4">
+      <textarea
+        className="w-full p-2 border rounded mb-2"
+        placeholder={user ? "What's on your mind?" : "Login to post…"}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        disabled={!user}
+      />
 
-      {image && (
-        <div className="mb-2">
-          <img src={image} alt="Preview" className="rounded-lg max-h-64 object-cover" />
-        </div>
-      )}
+      <input
+        className="w-full p-2 border rounded mb-2"
+        placeholder="Optional image URL"
+        value={image}
+        onChange={(e) => setImage(e.target.value)}
+        disabled={!user}
+      />
 
-      <div className="flex items-center justify-between mt-2">
-        <label className="cursor-pointer text-[#1877f2] font-semibold">
-          📷 Photo
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleImage}
-            className="hidden"
-          />
-        </label>
-        <button
-          onClick={handleSubmit}
-          className="bg-[#1877f2] text-white px-4 py-2 rounded font-semibold hover:bg-blue-700 transition"
-        >
-          Post
-        </button>
-      </div>
+      <button
+        onClick={handlePost}
+        disabled={!user}
+        className={`px-4 py-2 rounded ${
+          user
+            ? "bg-blue-600 hover:bg-blue-700 text-white"
+            : "bg-gray-300 text-gray-600 cursor-not-allowed"
+        }`}
+      >
+        Post
+      </button>
     </div>
   );
 }

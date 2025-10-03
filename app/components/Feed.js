@@ -1,62 +1,96 @@
+// app/components/Feed.js
 "use client";
-
-import { useState } from "react";
-import { posts as initialPosts } from "../data/posts";
-import PostBox from "./PostBox";
+import { useEffect, useState } from "react";
+import { supabase } from "../utils/supabaseClient";
 
 export default function Feed() {
-  const [posts, setPosts] = useState(initialPosts);
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const addPost = (text, image) => {
-    const newPost = {
-      id: posts.length + 1,
-      user: "You",
-      text,
-      image,
-      likes: 0,
+  // Load posts initially
+  useEffect(() => {
+    const fetchPosts = async () => {
+      let { data, error } = await supabase
+        .from("posts")
+        .select("*")
+        .order("id", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching posts:", error);
+      } else {
+        setPosts(data);
+      }
+      setLoading(false);
     };
-    setPosts([newPost, ...posts]);
+
+    fetchPosts();
+
+    // ✅ Realtime listener for INSERT + UPDATE
+    const channel = supabase
+      .channel("posts-changes")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "posts" },
+        (payload) => {
+          console.log("New post received:", payload.new);
+          setPosts((prev) => [payload.new, ...prev]); // new post on top
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "posts" },
+        (payload) => {
+          console.log("Post updated:", payload.new);
+          setPosts((prev) =>
+            prev.map((p) => (p.id === payload.new.id ? payload.new : p))
+          );
+        }
+      )
+      .subscribe();
+
+    // cleanup when unmounting
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  // Like button handler
+  const handleLike = async (id, currentLikes) => {
+    const { error } = await supabase
+      .from("posts")
+      .update({ likes: currentLikes + 1 })
+      .eq("id", id);
+
+    if (error) {
+      console.error("Error liking post:", error);
+    }
   };
 
-  const handleLike = (id) => {
-    setPosts((prev) =>
-      prev.map((post) =>
-        post.id === id ? { ...post, likes: post.likes + 1 } : post
-      )
-    );
-  };
+  if (loading) return <p className="text-center mt-4">Loading posts...</p>;
 
   return (
     <div className="space-y-4">
-      <PostBox onPost={addPost} />
       {posts.map((post) => (
         <div
           key={post.id}
-          className="bg-white shadow-md rounded-lg p-4 hover:shadow-lg transition"
+          className="bg-white p-4 rounded shadow-sm border border-gray-200"
         >
-          <div className="flex items-center mb-2">
-            <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center font-bold text-gray-600">
-              {post.user[0]}
-            </div>
-            <div className="ml-3">
-              <div className="font-bold text-gray-900">{post.user}</div>
-              <div className="text-xs text-gray-500">Just now</div>
-            </div>
-          </div>
-
-          <p className="mb-3 text-gray-800">{post.text}</p>
+          <div className="font-semibold">{post.username}</div>
+          <div className="text-gray-700">{post.text}</div>
 
           {post.image && (
-            <div className="mb-3">
-              <img src={post.image} alt="User post" className="rounded-lg max-h-96 object-cover" />
-            </div>
+            <img
+              src={post.image}
+              alt="User post"
+              className="mt-2 rounded-md max-h-60 object-cover"
+            />
           )}
 
-          <div className="flex items-center justify-between text-sm text-gray-600 border-t pt-2">
+          <div className="flex items-center justify-between mt-2">
             <span>👍 {post.likes} likes</span>
             <button
-              onClick={() => handleLike(post.id)}
-              className="text-[#1877f2] font-semibold hover:underline"
+              onClick={() => handleLike(post.id, post.likes)}
+              className="text-blue-600 font-semibold hover:underline"
             >
               Like
             </button>
