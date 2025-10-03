@@ -1,20 +1,18 @@
-// app/components/Feed.js
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "../utils/supabaseClient";
-import Image from "next/image"; // ✅ Import Next.js Image
+import Image from "next/image";
 
 export default function Feed() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Load posts initially
   useEffect(() => {
     const fetchPosts = async () => {
       let { data, error } = await supabase
         .from("posts")
-        .select("*")
-        .order("id", { ascending: false });
+        .select("id, text, image, likes, username, user_id, created_at")
+        .order("created_at", { ascending: false });
 
       if (error) {
         console.error("Error fetching posts:", error);
@@ -26,15 +24,15 @@ export default function Feed() {
 
     fetchPosts();
 
-    // ✅ Realtime listener for posts
+    // ✅ Realtime subscription for new + updated posts
     const channel = supabase
-      .channel("posts-changes")
+      .channel("posts-feed")
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "posts" },
         (payload) => {
-          console.log("New post received:", payload.new);
-          setPosts((prev) => [payload.new, ...prev]); // add new post on top
+          console.log("New post:", payload.new);
+          setPosts((prev) => [payload.new, ...prev]);
         }
       )
       .on(
@@ -49,25 +47,22 @@ export default function Feed() {
       )
       .subscribe();
 
-    // cleanup when component unmounts
     return () => {
       supabase.removeChannel(channel);
     };
   }, []);
 
-  // Like button handler
+  // Like handler
   const handleLike = async (id, currentLikes) => {
     const { error } = await supabase
       .from("posts")
       .update({ likes: currentLikes + 1 })
       .eq("id", id);
 
-    if (error) {
-      console.error("Error liking post:", error);
-    }
+    if (error) console.error("Error liking post:", error);
   };
 
-  if (loading) return <p className="text-center mt-4">Loading posts...</p>;
+  if (loading) return <p className="text-center mt-4">Loading posts…</p>;
 
   return (
     <div className="space-y-4">
@@ -76,22 +71,38 @@ export default function Feed() {
           key={post.id}
           className="bg-white p-4 rounded shadow-sm border border-gray-200"
         >
-          <div className="font-semibold">{post.username}</div>
-          <div className="text-gray-700">{post.text}</div>
+          {/* ✅ User Info */}
+          <div className="flex items-center mb-2">
+            <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-gray-700 font-bold mr-3">
+              {post.username ? post.username[0].toUpperCase() : "?"}
+            </div>
+            <div>
+              <div className="font-semibold text-gray-900">
+                {post.username || "Anonymous"}
+              </div>
+              <div className="text-xs text-gray-500">
+                {new Date(post.created_at).toLocaleString()}
+              </div>
+            </div>
+          </div>
+
+          {/* ✅ Post Content */}
+          <div className="text-gray-800 mb-2">{post.text}</div>
 
           {post.image && (
-            <div className="mt-2 rounded-md overflow-hidden max-h-60">
+            <div className="rounded-md overflow-hidden mb-2">
               <Image
                 src={post.image}
                 alt="User post"
                 width={600}
                 height={400}
-                className="object-cover rounded-md"
+                className="rounded-md object-cover max-h-96"
               />
             </div>
           )}
 
-          <div className="flex items-center justify-between mt-2">
+          {/* ✅ Actions */}
+          <div className="flex items-center justify-between mt-2 text-sm text-gray-600">
             <span>👍 {post.likes} likes</span>
             <button
               onClick={() => handleLike(post.id, post.likes)}
