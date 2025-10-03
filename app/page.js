@@ -1,11 +1,12 @@
-// app/page.js
+"use client"; // ✅ Force client component (fixes useAuth error)
+
 import Navbar from "./components/Navbar";
 import Feed from "./components/Feed";
 import LeftSidebar from "./components/LeftSidebar";
 import RightSidebar from "./components/RightSidebar";
 import AuthBox from "./components/AuthBox";
 import PostBox from "./components/PostBox";
-import { useAuth } from "./utils/AuthProvider";
+import { useAuth } from "./utils/AuthProvider"; // ✅ custom auth context
 
 export default function Home() {
   const { user } = useAuth();
@@ -19,10 +20,10 @@ export default function Home() {
           <LeftSidebar />
         </div>
 
-        {/* Middle Feed */}
+        {/* Main Feed */}
         <div className="w-full max-w-xl">
           <AuthBox />
-          {user && <PostBox />}
+          {user && <PostBox />} {/* ✅ Only show PostBox if logged in */}
           <Feed />
         </div>
 
