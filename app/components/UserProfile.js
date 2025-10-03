@@ -71,7 +71,8 @@ export default function UserProfile({ params }) {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{username}</h1>
-            <p className="text-gray-600">This is {username}'s profile bio.</p>
+            <p className="text-gray-600">This is {username}&apos;s profile bio.</p>
+
           </div>
         </div>
       </div>
