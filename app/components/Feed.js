@@ -2,6 +2,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "../utils/supabaseClient";
+import Image from "next/image"; // ✅ Import Next.js Image
 
 export default function Feed() {
   const [posts, setPosts] = useState([]);
@@ -25,7 +26,7 @@ export default function Feed() {
 
     fetchPosts();
 
-    // ✅ Realtime listener for INSERT + UPDATE
+    // ✅ Realtime listener for posts
     const channel = supabase
       .channel("posts-changes")
       .on(
@@ -33,7 +34,7 @@ export default function Feed() {
         { event: "INSERT", schema: "public", table: "posts" },
         (payload) => {
           console.log("New post received:", payload.new);
-          setPosts((prev) => [payload.new, ...prev]); // new post on top
+          setPosts((prev) => [payload.new, ...prev]); // add new post on top
         }
       )
       .on(
@@ -48,7 +49,7 @@ export default function Feed() {
       )
       .subscribe();
 
-    // cleanup when unmounting
+    // cleanup when component unmounts
     return () => {
       supabase.removeChannel(channel);
     };
@@ -79,11 +80,15 @@ export default function Feed() {
           <div className="text-gray-700">{post.text}</div>
 
           {post.image && (
-            <img
-              src={post.image}
-              alt="User post"
-              className="mt-2 rounded-md max-h-60 object-cover"
-            />
+            <div className="mt-2 rounded-md overflow-hidden max-h-60">
+              <Image
+                src={post.image}
+                alt="User post"
+                width={600}
+                height={400}
+                className="object-cover rounded-md"
+              />
+            </div>
           )}
 
           <div className="flex items-center justify-between mt-2">
